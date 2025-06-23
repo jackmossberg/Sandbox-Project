@@ -117,3 +117,27 @@ int glapi_DestroyApp(gl_app* app) {
 int glapi_ShouldAppClose(gl_app* app) {
     return glfwWindowShouldClose(app->window->pointer);
 }
+
+API void glapi_CreateStackRenderer(gl_app* app, gl_stackrenderer* srenderer, gl_mesh mesh, size_t mcount) {
+    app_resources* graphics_resources = (app_resources*)app->resources;
+}
+
+API void glapi_DestroyStackRenderer(gl_app* app, gl_stackrenderer* srenderer) {
+    app_resources* graphics_resources = (app_resources*)app->resources;
+}
+
+API void glapi_DrawStackRenderer(gl_window* window, gl_stackrenderer* srenderer) {
+
+}
+
+API void glapi_CreateHeapRenderer(gl_app* app, gl_heaprenderer* hrenderer, gl_mesh* meshes, size_t mcount) {
+    app_resources* graphics_resources = (app_resources*)app->resources;
+}
+
+API void glapi_DestroyHeapRenderer(gl_app* app, gl_heaprenderer* hrenderer) {
+    app_resources* graphics_resources = (app_resources*)app->resources;
+}
+
+API void glapi_DrawHeapRenderer(gl_window* window, gl_heaprenderer* hrenderer) {
+    
+}

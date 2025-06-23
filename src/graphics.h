@@ -9,6 +9,11 @@
 
 #define API extern
 
+#define VAO 0
+#define SHADER 1
+#define TEXTURE 2
+#define FRAMEBUFFER 3
+
 typedef GLuint gl_shader;
 typedef GLuint gl_texture;
 typedef GLuint gl_vao;
@@ -16,7 +21,7 @@ typedef GLuint gl_framebuffer;
 typedef GLFWwindow gl_apiwindow;
 
 #define T (globject_tcouple)
-typedef struct globject_tcouple { void* address; int objtype; } globject_tcouple;
+typedef struct globject_tcouple { unsigned int globject; int objtype; } globject_tcouple;
 
 typedef struct gl_mesh {
     GLfloat* positions;
@@ -71,10 +76,10 @@ API void glapi_CreateBuffer();
 API void glapi_DestroyBuffer();
 API void glapi_DrawBuffer();
 
-API void glapi_CreateStackRenderer();
-API void glapi_DestroyStackRenderer();
-API void glapi_DrawStackRenderer();
+API void glapi_CreateStackRenderer(gl_app* app, gl_stackrenderer* srenderer, gl_mesh mesh, size_t mcount);
+API void glapi_DestroyStackRenderer(gl_app* app, gl_stackrenderer* srenderer);
+API void glapi_DrawStackRenderer(gl_window* window, gl_stackrenderer* srenderer);
 
 API void glapi_CreateHeapRenderer(gl_app* app, gl_heaprenderer* hrenderer, gl_mesh* meshes, size_t mcount);
-API void glapi_DestroyHeapRenderer();
-API void glapi_DrawHeapRenderer();
+API void glapi_DestroyHeapRenderer(gl_app* app, gl_heaprenderer* hrenderer);
+API void glapi_DrawHeapRenderer(gl_window* window, gl_heaprenderer* hrenderer);
