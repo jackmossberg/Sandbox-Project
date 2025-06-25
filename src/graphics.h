@@ -23,9 +23,12 @@ typedef GLuint gl_framebuffer;
 typedef GLFWwindow gl_apiwindow;
 
 #define T (globject_tcouple)
-typedef struct globject_tcouple { unsigned int globject; int objtype; } globject_tcouple;
+typedef struct globject_tcouple { GLuint* globject; unsigned int objtype; } globject_tcouple;
 
 typedef struct gl_mesh {
+    const char* shader_v;
+    const char* shader_f;
+    const char* texture_fpath;
     GLfloat* positions;
     GLuint* indices;
     GLfloat* uvs;
@@ -47,6 +50,7 @@ typedef struct gl_stackrenderer {
     gl_vao vao;
     gl_shader shader;
     gl_texture texture;
+    size_t indices_size;
 } gl_stackrenderer;
 
 typedef struct gl_buffer {
@@ -60,7 +64,6 @@ typedef struct gl_window {
     uint16_t window_height;
     uint16_t frame_width;
     uint16_t frame_height;
-
     gl_buffer frame;
 } gl_window;
 
@@ -68,6 +71,10 @@ typedef struct gl_app {
     gl_window* window;
     void* resources;
 } gl_app;
+
+API void glapi_AppendOpenGLObjects(gl_app* app, globject_tcouple tcouple);
+API void glapi_AppendHeapMeshes(gl_app* app, gl_mesh* mesh);
+API void glapi_AppendHeapRenderer(gl_app* app, gl_heaprenderer* renderer);
 
 API gl_app* glapi_CreateApp(uint16_t window_width, uint16_t window_height, uint16_t frame_width, uint16_t frame_height, const char* title, bool resizable);
 API int glapi_DestroyApp(gl_app* app);
