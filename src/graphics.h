@@ -25,10 +25,10 @@ typedef GLFWwindow gl_apiwindow;
 #define T (globject_tcouple)
 typedef struct globject_tcouple { GLuint* globject; unsigned int objtype; } globject_tcouple;
 
+#define U (gl_uniform)
+typedef struct gl_uniform { void* data; unsigned int type; } gl_uniform;
+    
 typedef struct gl_mesh {
-    const char* shader_v;
-    const char* shader_f;
-    const char* texture_fpath;
     GLfloat* positions;
     GLuint* indices;
     GLfloat* uvs;
@@ -39,32 +39,11 @@ typedef struct gl_mesh {
     size_t normals_size;
 } gl_mesh;
 
-typedef struct gl_heaprenderer {
-    gl_mesh* meshes;
-    gl_vao* vaos;
-    gl_shader* shaders;
-    gl_texture* textures;
-} gl_heaprenderer;
-
-typedef struct gl_stackrenderer {
-    gl_vao vao;
-    gl_shader shader;
-    gl_texture texture;
-    size_t indices_size;
-} gl_stackrenderer;
-
-typedef struct gl_buffer {
-    GLuint framebuffer;
-    gl_stackrenderer mesh;
-} gl_buffer;
-
 typedef struct gl_window {
     gl_apiwindow* pointer;
     uint16_t window_width;
     uint16_t window_height;
-    uint16_t frame_width;
-    uint16_t frame_height;
-    gl_buffer frame;
+    float r, g, b;
 } gl_window;
 
 typedef struct gl_app {
@@ -73,22 +52,20 @@ typedef struct gl_app {
 } gl_app;
 
 API void glapi_AppendOpenGLObjects(gl_app* app, globject_tcouple tcouple);
-API void glapi_AppendHeapMeshes(gl_app* app, gl_mesh* mesh);
-API void glapi_AppendHeapRenderer(gl_app* app, gl_heaprenderer* renderer);
 
-API gl_app* glapi_CreateApp(uint16_t window_width, uint16_t window_height, uint16_t frame_width, uint16_t frame_height, const char* title, bool resizable);
+API gl_app* glapi_CreateApp(uint16_t window_width, uint16_t window_height, const char* title, bool resizable, float r, float g, float b);
 API int glapi_DestroyApp(gl_app* app);
-API void glapi_RenderApp(gl_app* app, float r, float g, float b);
+API void glapi_BindApp(gl_app* app);
+API void glapi_UnbindApp(gl_app* app);
 API int glapi_ShouldAppClose(gl_app* app);
 
-API void glapi_CreateBuffer();
-API void glapi_DestroyBuffer();
-API void glapi_DrawBuffer();
+API GLuint glapi_GenShaderProgram_f(gl_app* app, const char* v_fpath, const char* f_fpath, GLuint* address);
+API GLuint glapi_GenShaderProgram_s(gl_app* app, const char* v_source, const char* f_source, GLuint* address);
+API GLuint glapi_GenVertexBufferObjectFromMesh(gl_app* app, gl_mesh* mesh, GLuint* address);
+API GLuint glapi_GenTextureFromFpath(gl_app* app, const char* fpath, GLuint* address);
 
-API void glapi_CreateStackRenderer(gl_app* app, gl_stackrenderer* srenderer, gl_mesh mesh, size_t mcount);
-API void glapi_DestroyStackRenderer(gl_app* app, gl_stackrenderer* srenderer);
-API void glapi_DrawStackRenderer(gl_window* window, gl_stackrenderer* srenderer);
-
-API void glapi_CreateHeapRenderer(gl_app* app, gl_heaprenderer* hrenderer, gl_mesh* meshes, size_t mcount);
-API void glapi_DestroyHeapRenderer(gl_app* app, gl_heaprenderer* hrenderer);
-API void glapi_DrawHeapRenderer(gl_window* window, gl_heaprenderer* hrenderer);
+API void glapi_BindVertexBufferObject(gl_vao* vao);
+API void glapi_UnbindVertexBufferObject();
+API void glapi_BindShader(gl_shader* shader);
+API void glapi_UnbindShader();
+API void glapi_DrawVertexBufferObject(size_t isize);

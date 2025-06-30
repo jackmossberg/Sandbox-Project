@@ -12,6 +12,7 @@
                 "${workspaceFolder}/src/main.c",
                 "${workspaceFolder}/src/glad.c",
                 "${workspaceFolder}/src/graphics.c",
+                "${workspaceFolder}/src/maths.c",
                 "-lglfw3",
                 "-framework", "Cocoa",
                 "-framework", "OpenGL",

@@ -5,33 +5,35 @@
 #define APIC static
 #define GL_ADDRESS_ARR_APPEND_AMOUNT 25
 
+APIC char* load_raw_txt(const char* fpath);
+APIC GLuint compile_shader_code(const char* source, GLenum type);
+
+void check_gl_error(const char* operation) {
+    GLenum err;
+    while ((err = glGetError()) != GL_NO_ERROR) {
+        fprintf(stderr, "[%s] - OpenGL error during %s: %d\n", _FL, operation, err);
+    }
+}
+
 typedef struct {
-    gl_heaprenderer** heaprenderables;
-    size_t heaprenderable_objcount;
-    size_t heaprenderable_objcapacity;
-    gl_mesh** heapmeshes;
-    size_t heapmesh_objcount;
-    size_t heapmesh_objcapacity;
     globject_tcouple* openglobjects;
     size_t openglobjects_objcount;
     size_t openglobjects_objcapacity;
 } app_resources;
 
-APIC char* load_raw_txt(const char* fpath);
-APIC GLuint compile_shader_code(const char* source, GLenum type);
-APIC GLuint gen_shader_program(gl_app* app, const char* v_fpath, const char* f_fpath, GLuint* address);
-APIC GLuint gen_vertex_buffer_object_from_mesh(gl_app* app, gl_mesh* mesh, GLuint* address);
-APIC GLuint gen_texture_from_fpath(gl_app* app, const char* fpath, GLuint* address);
-
 void resize_callback(GLFWwindow* window, int width, int height) {
+    gl_app* app = (gl_app*)glfwGetWindowUserPointer(window);
+    app->window->window_width = width;
+    app->window->window_height = height;
     glViewport(0, 0, width, height);
+    check_gl_error("resize_callback");
 }
 
 void error_callback(int error, const char* description) {
     fprintf(stderr, "GLFW Error %d: %s\n", error, description);
 }
 
-gl_app* glapi_CreateApp(uint16_t window_width, uint16_t window_height, uint16_t frame_width, uint16_t frame_height, const char* title, bool resizable) {
+gl_app* glapi_CreateApp(uint16_t window_width, uint16_t window_height, const char* title, bool resizable, float r, float g, float b) {
     gl_app* app = (gl_app*)calloc(1, sizeof(gl_app));
     if (!app) {
         fprintf(stderr, "[%s] - Failure to allocate 'app' to heap in glapi_CreateApp\n", _FL); 
@@ -51,8 +53,6 @@ gl_app* glapi_CreateApp(uint16_t window_width, uint16_t window_height, uint16_t 
     }
     app_resources* graphics_resources = (app_resources*)app->resources;
     graphics_resources->openglobjects_objcount = 0;
-    graphics_resources->heapmesh_objcount = 0;
-    graphics_resources->heaprenderable_objcount = 0;
 
     glfwSetErrorCallback(error_callback);
     printf("[%s] - Starting program\n", _FL);
@@ -96,9 +96,6 @@ gl_app* glapi_CreateApp(uint16_t window_width, uint16_t window_height, uint16_t 
         exit(1);
     }
     printf("[%s] - GLAD initialized\n", _FL);
-
-    glViewport(0, 0, app->window->window_width, app->window->window_height);
-    printf("[%s] - GLViewport initialized\n", _FL);
     
     const GLubyte* version = glGetString(GL_VERSION);
     if (!version) {
@@ -107,19 +104,31 @@ gl_app* glapi_CreateApp(uint16_t window_width, uint16_t window_height, uint16_t 
         printf("[%s] - OpenGL version: %s\n", _FL, version);
     }
 
+    app->window->window_width = window_width;
+    app->window->window_height = window_height;
+    app->window->r = r;
+    app->window->g = g;
+    app->window->b = b;
+
     glfwShowWindow(app->window->pointer);
     fprintf(stderr, "[%s] - Window shown\n", _FL);
 
     glEnable(GL_DEPTH_TEST);
     glfwSwapInterval(1);
-
     return app;
 }
 
-void glapi_RenderApp(gl_app* app, float r, float g, float b) {
-    glClearColor(r,g,b,1.0f);
+void glapi_BindApp(gl_app* app) {
+    glClearColor(
+        app->window->r, 
+        app->window->g, 
+        app->window->b, 
+        1.0f
+    );
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+}
 
+void glapi_UnbindApp(gl_app* app) {
     glfwSwapBuffers(app->window->pointer);
     glfwPollEvents();
 }
@@ -156,40 +165,7 @@ int glapi_DestroyApp(gl_app* app) {
         graphics_resources->openglobjects_objcount = 0;
         free(clist);
     }
-
-heapmeshes:
-    if (graphics_resources->heapmeshes) {
-        for (size_t i = 0; i < graphics_resources->heapmesh_objcount; i++) {
-            if (graphics_resources->heapmeshes[i]->positions)
-                free(graphics_resources->heapmeshes[i]->positions);
-            if (graphics_resources->heapmeshes[i]->indices)
-                free(graphics_resources->heapmeshes[i]->indices);
-            if (graphics_resources->heapmeshes[i]->uvs)
-                free(graphics_resources->heapmeshes[i]->uvs);
-            if (graphics_resources->heapmeshes[i]->normals)
-                free(graphics_resources->heapmeshes[i]->normals);
-        }
-        graphics_resources->heapmesh_objcount = 0;
-        free(graphics_resources->heapmeshes);
-    }
-
-heaprenderables:
-    if (graphics_resources->heaprenderables) {
-        for (size_t i = 0; i < graphics_resources->heaprenderable_objcount; i++) {
-            if (graphics_resources->heaprenderables[i]->meshes)
-                free(graphics_resources->heaprenderables[i]->meshes);
-            if (graphics_resources->heaprenderables[i]->shaders)
-                free(graphics_resources->heaprenderables[i]->shaders);
-            if (graphics_resources->heaprenderables[i]->textures)
-                free(graphics_resources->heaprenderables[i]->textures);
-            if (graphics_resources->heaprenderables[i]->vaos)
-                free(graphics_resources->heaprenderables[i]->vaos);
-        }
-        graphics_resources->heaprenderable_objcount = 0;
-        free(graphics_resources->heaprenderables);
-    }
-
-freeappl:
+    
     glfwDestroyWindow(app->window->pointer);
     glfwTerminate();
     free(app->window);
@@ -200,31 +176,6 @@ freeappl:
 
 int glapi_ShouldAppClose(gl_app* app) {
     return glfwWindowShouldClose(app->window->pointer);
-}
-
-void glapi_CreateStackRenderer(gl_app* app, gl_stackrenderer* srenderer, gl_mesh mesh, size_t mcount) {
-    app_resources* graphics_resources = (app_resources*)app->resources;
-    
-}
-
-void glapi_DestroyStackRenderer(gl_app* app, gl_stackrenderer* srenderer) {
-    app_resources* graphics_resources = (app_resources*)app->resources;
-}
-
-void glapi_DrawStackRenderer(gl_window* window, gl_stackrenderer* srenderer) {
-
-}
-
-void glapi_CreateHeapRenderer(gl_app* app, gl_heaprenderer* hrenderer, gl_mesh* meshes, size_t mcount) {
-    app_resources* graphics_resources = (app_resources*)app->resources;
-}
-
-void glapi_DestroyHeapRenderer(gl_app* app, gl_heaprenderer* hrenderer) {
-    app_resources* graphics_resources = (app_resources*)app->resources;
-}
-
-void glapi_DrawHeapRenderer(gl_window* window, gl_heaprenderer* hrenderer) {
-    
 }
 
 void glapi_AppendOpenGLObjects(gl_app* app, globject_tcouple tcouple) {
@@ -256,68 +207,6 @@ void glapi_AppendOpenGLObjects(gl_app* app, globject_tcouple tcouple) {
     }
     clist[clistlen] = tcouple;
     graphics_resources->openglobjects_objcount = clistlen + 1;
-}
-
-API void glapi_AppendHeapMeshes(gl_app* app, gl_mesh* mesh) {
-    app_resources* graphics_resources = (app_resources*)app->resources;
-    gl_mesh** clist = graphics_resources->heapmeshes;
-    size_t clistlen = graphics_resources->heapmesh_objcount;
-    size_t clistsize = graphics_resources->heapmesh_objcapacity;
-
-    if (!clist) {
-        clistsize = GL_ADDRESS_ARR_APPEND_AMOUNT;
-        clist = (gl_mesh**)calloc(clistsize, sizeof(gl_mesh*));
-        if (!clist) {
-            fprintf(stderr, "[%s] - Failure to allocate 'app->resources->heapmeshes' to heap in glapi_AppendHeapMeshes\n", _FL); 
-            return;
-        }
-        graphics_resources->heapmeshes = clist;
-        graphics_resources->heapmesh_objcapacity = clistsize;
-    }
-    else if (clistlen >= clistsize) {
-        clistsize *= 2;
-        gl_mesh** new_clist = (gl_mesh**)realloc(clist, clistsize * sizeof(gl_mesh*));
-        if (!new_clist) {
-            fprintf(stderr, "[%s] - Failure to reallocate 'app->resources->heapmeshes' in glapi_AppendHeapMeshes\n", _FL); 
-            return;
-        }
-        clist = new_clist;
-        graphics_resources->heapmeshes = clist;
-        graphics_resources->heapmesh_objcapacity = clistsize;
-    }
-    clist[clistlen] = mesh;
-    graphics_resources->heapmesh_objcount = clistlen + 1;
-}
-
-API void glapi_AppendHeapRenderer(gl_app* app, gl_heaprenderer* renderer){
-    app_resources* graphics_resources = (app_resources*)app->resources;
-    gl_heaprenderer** clist = graphics_resources->heaprenderables;
-    size_t clistlen = graphics_resources->heaprenderable_objcount;
-    size_t clistsize = graphics_resources->heaprenderable_objcapacity;
-
-    if (!clist) {
-        clistsize = GL_ADDRESS_ARR_APPEND_AMOUNT;
-        clist = (gl_heaprenderer**)calloc(clistsize, sizeof(gl_heaprenderer*));
-        if (!clist) {
-            fprintf(stderr, "[%s] - Failure to allocate 'app->resources->heaprenderables' to heap in glapi_AppendHeapRenderer\n", _FL); 
-            return;
-        }
-        graphics_resources->heaprenderables = clist;
-        graphics_resources->heaprenderable_objcapacity = clistsize;
-    }
-    else if (clistlen >= clistsize) {
-        clistsize *= 2;
-        gl_heaprenderer** new_clist = (gl_heaprenderer**)realloc(clist, clistsize * sizeof(gl_heaprenderer*));
-        if (!new_clist) {
-            fprintf(stderr, "[%s] - Failure to reallocate 'app->resources->heaprenderables' in glapi_AppendHeapRenderer\n", _FL); 
-            return;
-        }
-        clist = new_clist;
-        graphics_resources->heaprenderables = clist;
-        graphics_resources->heaprenderable_objcapacity = clistsize;
-    }
-    clist[clistlen] = renderer;
-    graphics_resources->heaprenderable_objcount = clistlen + 1;
 }
 
 APIC char* load_raw_txt(const char* fpath) {
@@ -361,14 +250,13 @@ APIC GLuint compile_shader_code(const char* source, GLenum type) {
     return shaderp;
 }
 
-APIC GLuint gen_shader_program(gl_app* app, const char* v_fpath, const char* f_fpath, GLuint* address) {
-    char* vsource = load_raw_txt(v_fpath);
-    char* fsource = load_raw_txt(f_fpath);
-    GLuint vshader = compile_shader_code(vsource, GL_VERTEX_SHADER);
-    GLuint fshader = compile_shader_code(fsource, GL_FRAGMENT_SHADER);
+GLuint glapi_GenShaderProgram_f(gl_app* app, const char* v_source, const char* f_source, GLuint* address) {
+    GLuint vshader = compile_shader_code(v_source, GL_VERTEX_SHADER);
+    GLuint fshader = compile_shader_code(f_source, GL_FRAGMENT_SHADER);
     GLuint sprogram = glCreateProgram();
     glAttachShader(sprogram, vshader);
     glAttachShader(sprogram, fshader);
+    glLinkProgram(sprogram);
     int errcode;
     glGetProgramiv(sprogram, GL_LINK_STATUS, &errcode);
     if (!errcode) {
@@ -378,19 +266,102 @@ APIC GLuint gen_shader_program(gl_app* app, const char* v_fpath, const char* f_f
     }
     glDeleteShader(vshader);
     glDeleteShader(fshader);
-    free(vsource);
-    free(fsource);
     glapi_AppendOpenGLObjects(app, T{address, SHADER});
     return sprogram;
 }
 
-APIC GLuint gen_vertex_buffer_object_from_mesh(gl_app* app, gl_mesh* mesh, GLuint* address) {
+GLuint glapi_GenShaderProgram_s(gl_app* app, const char* v_fpath, const char* f_fpath, GLuint* address) {
+    char* v_source = load_raw_txt(v_fpath);
+    char* f_source = load_raw_txt(f_fpath);
+    GLuint vshader = compile_shader_code(v_source, GL_VERTEX_SHADER);
+    GLuint fshader = compile_shader_code(f_source, GL_FRAGMENT_SHADER);
+    GLuint sprogram = glCreateProgram();
+    glAttachShader(sprogram, vshader);
+    glAttachShader(sprogram, fshader);
+    glLinkProgram(sprogram);
+    int errcode;
+    glGetProgramiv(sprogram, GL_LINK_STATUS, &errcode);
+    if (!errcode) {
+        char log[512];
+        glGetProgramInfoLog(sprogram, 512, NULL, log);
+        fprintf(stderr, "[%s] - Shader linking error: %s\n", _FL, log);
+    }
+    glDeleteShader(vshader);
+    glDeleteShader(fshader);
+    free(v_source);
+    free(f_source);
+    glapi_AppendOpenGLObjects(app, T{address, SHADER});
+    return sprogram;
+}
+
+GLuint glapi_GenVertexBufferObjectFromMesh(gl_app* app, gl_mesh* mesh, GLuint* address) {
+    GLuint 
+        vao,
+        vbo_positions,
+        vbo_uvs,
+        vbo_normals,
+        ebo;
+
+    glGenVertexArrays(1, &vao);
+    glBindVertexArray(vao);
+
+    glGenBuffers(1, &vbo_positions);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo_positions);
+    glBufferData(GL_ARRAY_BUFFER, mesh->positions_size, mesh->positions, GL_STATIC_DRAW);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), (void*)0);
+    glEnableVertexAttribArray(0);
+
+    if (mesh->uvs && mesh->uvs_size > 0) {
+        glGenBuffers(1, &vbo_uvs);
+        glBindBuffer(GL_ARRAY_BUFFER, vbo_uvs);
+        glBufferData(GL_ARRAY_BUFFER, mesh->uvs_size, mesh->uvs, GL_STATIC_DRAW);
+        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(GLfloat), (void*)0);
+        glEnableVertexAttribArray(1);
+    }
     
+    if (mesh->normals && mesh->normals_size > 0) {
+        glGenBuffers(1, &vbo_normals);
+        glBindBuffer(GL_ARRAY_BUFFER, vbo_normals);
+        glBufferData(GL_ARRAY_BUFFER, mesh->normals_size, mesh->normals, GL_STATIC_DRAW);
+        glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), (void*)0);
+        glEnableVertexAttribArray(2);
+    }
+
+    glGenBuffers(1, &ebo);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, mesh->indices_size, mesh->indices, GL_STATIC_DRAW);
+
+    glBindVertexArray(0);
+
     glapi_AppendOpenGLObjects(app, T{address, VAO});
+    return vao;
+}
+
+GLuint glapi_GenTextureFromFpath(gl_app* app, const char* fpath, GLuint* address) {
+    glapi_AppendOpenGLObjects(app, T{address, TEXTURE});
     return 0;
 }
 
-APIC GLuint gen_texture_from_fpath(gl_app* app, const char* fpath, GLuint* address) {
-    glapi_AppendOpenGLObjects(app, T{address, TEXTURE});
-    return 0;
+void glapi_BindVertexBufferObject(gl_vao* vao) {
+    glBindVertexArray(*vao);
+}
+
+void glapi_UnbindVertexBufferObject() {
+    glBindVertexArray(0);
+}
+
+void glapi_BindShader(gl_shader* shader) {
+    glUseProgram(*shader);
+}
+
+void glapi_UnbindShader() {
+    glUseProgram(0);
+}
+
+void glapi_DrawVertexBufferObject(size_t isize) {
+    glDrawElements(GL_TRIANGLES, isize/sizeof(GLuint), GL_UNSIGNED_INT, 0);
+}
+
+void glapi_PushValueToShader(const char* varname, void* value, gl_shader* shader) {
+    // finish this at some point...
 }
